@@ -1,7 +1,7 @@
 # Demo for audio_features_analysis
 
 <p align="center">
-  <img src="https://github.com/zhiyuan8/audio_features_analysis/blob/master/img/screen_shot2.png" width="350" title="hover text">
+  <img src="https://github.com/zhiyuan8/audio_features_analysis/blob/master/img/screen_shot2.png" width="800" title="demo">
 </p>  
 
 Original codes and data are at https://github.com/zhiyuan8/audio_features_analysis   
