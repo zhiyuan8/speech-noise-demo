@@ -4,7 +4,7 @@
 
 <head>
 
-    <title>Speech_Noise_Classifier</title>
+    <title>microphone_in_and_make_decision</title>
     <meta charset=utf-8"/>
     <!-- scripts -->
     <script src="lib/jquery.min.js"></script>
@@ -12,27 +12,25 @@
     <script src="lib/p5.min.js"></script>
     <script src="lib/p5.dom.min.js"></script>
     <script src="lib/math.js"></script>
-
     <script src="lib/other_functions.js"></script>
-
-    <script src="lib/normalization_2_23.js"></script>
-    <script src="lib/RandomForest_noise_2_23_new.js"></script>
-
-    <button onclick="exportArray()">Export Data</button>
+    <script src="lib/normalization_3_15.js"></script>
+    <script src="lib/RandomForest_noise_3_15_2.js"></script>
+    
     <label id="speech_non_speech">noise</label>
-    <label id="speech_score">0</label>  
+    <label id="speech_score">0</label> 
 
 </head>
 
-<body  onload="timeClock()">
+<body onload="timeClock()">
     <div id="txt"></div>
     <div id="output" width="500" height="300" style="border:1px solid #d3d3d3;"></div>
+
 <script>
 
 // User defined variables
 var buffer_size = 512; //Buffer size must be a power of 2, e.g. 64 or 512
 var sample_rate = 16000; //16000, 22050, 44100
-var num_features = 27; // must be consistant with "featureExtractors", length of mfcc=13
+var num_features = 4; // must be consistant with "featureExtractors", length of mfcc=13
 var num_statistics = 10;// must be consistant with "mtFeatureExtraction"
 
 // global variables
@@ -43,9 +41,10 @@ var stData = Create2DArray(num_features); // save all st-term features, # of fea
 var mtData = Create2DArray(num_features*num_statistics);// save all mid-term features, # of features * # of statistics 
 
 var mtData_normalized = []
+var mtData_use = []
 
 var mtCount = 0; mtColCount = 0; stColCount =0;
-var threshold = 0.002; // threshold on rms value
+var threshold = 1; // threshold on rms value
 var playing = false;
 var timeCount = 0;
 var myVar; // used in setInterval
@@ -70,10 +69,11 @@ function setup() {
     // initializations
     label_text('speech_non_speech', 'noise')
     label_text('speech_score', '0')
+
     // set properties of myCanvas
     opt.style.position = "absolute";
-    opt.style.left = 80 +'px';
-    opt.style.top = 400 +'px';
+    opt.style.left = 50 +'px';
+    opt.style.top = 450 +'px';
 
     // canvas setup
     createCanvas(1000, 300)
@@ -98,8 +98,7 @@ function setup() {
   // second, which means in this case Meyda will calculate the level about 86
   // (44100/512) times per second.
             'sampleRate':sample_rate,
-            "featureExtractors": ['rms','zcr','energy', 'spectralCentroid','spectralFlatness','spectralSlope',
-            'spectralSpread','spectralRolloff','mfcc','spectralSkewness','spectralKurtosis','buffer','amplitudeSpectrum'],// define feature to extract here
+            "featureExtractors": ['zcr','energy','spectralSpread', 'spectralSlope','buffer','amplitudeSpectrum'],// define feature to extract here
   // Finally, we provide a function which Meyda will call every time it
   // calculates a new level. This function will be called around 86 times per
   // second.
@@ -145,24 +144,10 @@ function show(features)
     raw_FFT = Array.from(features['amplitudeSpectrum']) ; // remember to change to normal array
   
     // save short-term features
-	stData[0][stColCount] = features['rms'] ;// [0,1], 0.0 is not loud and 1.0 is very loud.
-    stData[1][stColCount] = features['zcr'] ; // Range: [0, ((buffer size / 2) - 1)]
-    stData[2][stColCount] = features['energy'] ; // Range: [0 - bufferSize] / bufferSize
-    stData[3][stColCount] = extractEntropy (raw_audio , 10);  //energy entropy
-    stData[4][stColCount] = features['spectralCentroid'] ; // An indicator of the “brightness” of a given sound// [0 - half of the FFT size]
-    stData[5][stColCount] = features['spectralSpread'] ;// Can be used to differentiate between noisy (high spectral spread) and pitched sounds (low spectral spread).
-    stData[6][stColCount] = extractEntropy (raw_FFT , 10); //spectral entropy
-    stData[7][stColCount] = features['spectralFlatness'] ; // Range: 0.0 - 1.0 where 0.0 is not flat and 1.0 is very flat.
-	stData[8][stColCount] = features['spectralSlope'] ;
-	stData[9][stColCount] = features['spectralRolloff'] ;
-	stData[10][stColCount] = features['spectralSkewness'] ;
-    stData[11][stColCount] = features['spectralKurtosis'] ;
-	stData[12][stColCount] = extractSpectralFlux (raw_FFT_prev, raw_FFT);  //starts at 0.0. This has no upper range. Often corresponds to perceptual “roughness” of a sound. Can be used for example, to determine the timbre of a sound.
-    stData[13][stColCount] = extractPitch (raw_audio, buffer_size, sample_rate); // get fundermental frequency of an audio
-    for (var i = 14; i < num_features; i++) 
-    {
-           stData[i][stColCount] = features['mfcc'][i-14]; //Often used to perform voice activity detection (VAD) prior to automatic speech recognition (ASR).
-    }
+    stData[0][stColCount] = features['zcr'] ; // Range: [0, ((buffer size / 2) - 1)]
+    stData[1][stColCount] = features['energy'] ; // Range: [0 - bufferSize] / bufferSize
+    stData[2][stColCount] = features['spectralSpread'] ;// Can be used to differentiate between noisy (high spectral spread) and pitched sounds (low spectral spread).
+	stData[3][stColCount] = features['spectralSlope'] ;
 
     output_features = [];
     for (var i = 0; i < num_features; i++) 
@@ -175,14 +160,14 @@ function show(features)
 
     // update parameters
     stColCount++;
-    raw_FFT_prev = raw_FFT ;
   }
 } // end show function
 
 function make_decision()
 {
     mtData_normalized = []
-
+    mtData_use = []
+    
     // get normalized mid-term data
     for (var i = 0; i < num_features; i++) 
     {
@@ -198,9 +183,11 @@ function make_decision()
     }
 
     // decision according to audio mtFeatures
-    var rms_origin = mtData_normalized[0] * normalize_std[0] + normalize_mean[0]; 
+    var energy_origin = mtData_normalized[10] * normalize_std[10] + normalize_mean[10]; 
+    
+    console.log(energy_origin)
 
-    if (rms_origin < threshold)   // max(rms) is too low, silence
+    if (energy_origin < threshold)   // max(rms) is too low, silence
     {
         prediction1 = 0; // if mean(rms) < threshold, then decide it is 'noise' direcrly
     }
@@ -225,12 +212,11 @@ function make_decision()
     }
     else // speech
     {
-        output_str.push(' Time= ' + timeCount + 's , Decision = Noise , Score for speech/noise = '+ output_score[timeCount] )
-
     	// output results on the labels
         label_text('speech_score', output_score[timeCount].toFixed(2)) 
         label_text('speech_non_speech', 'speech')
-       
+
+        output_str.push(' Time= ' + timeCount + 's , Decision = Speech , Score for speech/noise = '+ output_score[timeCount] )
     }
 
     // print out decisions in opt Canvas
