@@ -5,5 +5,5 @@
 </p>  
 
 Original codes and data are at https://zhiyuan8.github.io/speech-noise-demo/   
-Open the link https://zhiyuan8.github.io/ and press **start**, then your audio features are drawn, and decisions are made every 1s. Press **Export Data** then mid-term features will be shown in a txt file.
+Open the link https://zhiyuan8.github.io/speech-noise-demo/ and press **start**, then your audio features are drawn, and decisions are made every 1s. Press **Export Data** then mid-term features will be shown in a txt file.
 The classification is based on kNN model, but more sophisticated models are being tunned now.
